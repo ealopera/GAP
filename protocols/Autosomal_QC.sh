@@ -25,12 +25,26 @@ module list
 output80="${AutosomeQCDir}/1_CR80" 
 output95="${AutosomeQCDir}/2_CR95"
 outputMH="${AutosomeQCDir}/3_MAF_HWE"
+Het="${AutosomeQCDir}/"4_Het"
+Relatedness="${AutosomeQCDir}/5_Relatedness"
+
+
 
 mkdir -p "${AutosomeQCDir}/"
 mkdir -p "${output80}/"
 mkdir -p "${output95}/"
 mkdir -p "${outputMH}/"
 mkdir -p "${repout}/"
+
+mkdir -p "${Het}/"
+mkdir -p "${Het}/proc"
+
+mkdir -p "${Relatedness}/"
+mkdir -p "${Relatedness}/proc"
+
+
+
+
 
 for chr in {1..22} "XY"
 do
@@ -110,6 +124,34 @@ cat ${output80}/chr_*.bim|awk '{print$2}' > ${output80}/incl80.vars
 
 cat ${output95}/chr_*.fam|sort -u|awk '{print$2}' > ${output95}/incl95.samples
 cat ${output95}/chr_*.bim|awk '{print$2}' > ${output95}/incl95.vars
+
+
+####heterozygosity by analysis by sample
+
+for chr in {1..22} "XY" 
+do
+   ##first, separate a list of SNPs to exclude by LD (--indep [SNPwindow] [shift] [LD threshold in 1/(1-r2)])
+   plink --bfile ${output95}/chr_"${chr}" --indep 50 5 5 --out ${Het}/proc/chr_"${chr}" ;
+   ##then exclude this list from the working files
+   plink --bfile ${output95}/chr_"${chr}" --extract ${Het}/proc/chr_"${chr}".prune.in --make-bed --out ${Het}/proc/chr_"${chr}".temp;
+done
+
+
+find ${Het}/proc/ -name "*.bim" > ${Het}/proc/allchr.list;
+sed -i 's/.bim//g' ${Het}/proc/allchr.list;
+#merge all chromosomes into one single genotype ...set of files (.fam, .bim, .bed)
+plink --merge-list ${Het}/proc/allchr.list --out ${Het}/proc/full_autosomal_het.temp
+#perform heterozigocity
+plink --het --bfile ${Het}/proc/full_autosomal_het.temp --out ${Het}/autosomal
+
+rm ${Het}/proc/*temp*
+
+
+
+
+
+
+
 
 
 Rscript ${EBROOTGAP}/scripts/genotypeQC.R -i ${AutosomeQCDir} \
